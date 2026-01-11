@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Twitter Bookmark Clearer",
+  "version": "1.0",
+  "description": "Automatically removes all Twitter/X bookmarks",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Clear Bookmarks"
+  }
+}
