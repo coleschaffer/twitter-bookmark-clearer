@@ -37,50 +37,92 @@ stopBtn.addEventListener('click', async () => {
 
 function clearBookmarks() {
   window.stopClearing = false;
-  let count = 0;
-  let skipped = 0;
-  const clickedButtons = new WeakSet();
+  let removed = 0;
+  let attempts = 0;
+  let consecutiveFails = 0;
+  const baseDelay = 5000; // 5 seconds between requests
+  const rateLimitPause = 90000; // 90 second pause when rate limited
+  const successfullyRemoved = new WeakSet();
+
+  function countdown(seconds, message) {
+    return new Promise(resolve => {
+      let remaining = seconds;
+      const interval = setInterval(() => {
+        if (window.stopClearing) {
+          clearInterval(interval);
+          resolve();
+          return;
+        }
+        console.log(`${message} ${remaining}s...`);
+        remaining--;
+        if (remaining < 0) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 1000);
+    });
+  }
 
   async function clickNext() {
     if (window.stopClearing) {
-      console.log(`Stopped. Removed ${count} bookmarks, skipped ${skipped} deleted posts.`);
+      console.log(`Stopped. Removed ${removed} bookmarks.`);
       return;
     }
 
-    // Find all unbookmark buttons and get one we haven't clicked yet
+    // Find the first unbookmark button we haven't successfully removed yet
     const allBtns = document.querySelectorAll('[data-testid="removeBookmark"]');
     let btn = null;
 
     for (const b of allBtns) {
-      if (!clickedButtons.has(b)) {
+      if (!successfullyRemoved.has(b)) {
         btn = b;
         break;
       }
     }
 
     if (btn) {
-      // Mark this button as clicked before we click it
-      clickedButtons.add(btn);
-
-      // Get the tweet article element to check if it gets removed
       const article = btn.closest('article');
 
       btn.click();
-      count++;
-      console.log(`Clicked unbookmark #${count}`);
+      attempts++;
+      console.log(`Attempt #${attempts} (${removed} removed so far)`);
 
-      // Wait and check if the article was removed
-      setTimeout(() => {
-        // If the article is still in the DOM and still has the button, it was probably a deleted post
-        if (article && document.contains(article)) {
-          const stillHasBtn = article.querySelector('[data-testid="removeBookmark"]');
-          if (stillHasBtn) {
-            skipped++;
-            console.log(`Post #${count} appears to be deleted, skipping...`);
+      // Wait to check result
+      await new Promise(r => setTimeout(r, 2000));
+
+      // Check if the article was removed (success) or still there (rate limited)
+      if (article && document.contains(article)) {
+        const stillHasBtn = article.querySelector('[data-testid="removeBookmark"]');
+        if (stillHasBtn) {
+          // Failed - likely rate limited
+          consecutiveFails++;
+          console.log(`❌ Rate limited! (${consecutiveFails} consecutive fails)`);
+
+          if (consecutiveFails >= 3) {
+            // We're definitely rate limited, pause for a long time
+            console.log(`🛑 Rate limit detected. Pausing for 90 seconds...`);
+            await countdown(90, '⏳ Resuming in');
+            consecutiveFails = 0; // Reset after pause
           }
+        } else {
+          // Button gone but article still there - success
+          successfullyRemoved.add(btn);
+          removed++;
+          consecutiveFails = 0;
+          console.log(`✅ Removed bookmark #${removed}`);
         }
-        clickNext();
-      }, 500);
+      } else {
+        // Article removed from DOM - success
+        successfullyRemoved.add(btn);
+        removed++;
+        consecutiveFails = 0;
+        console.log(`✅ Removed bookmark #${removed}`);
+      }
+
+      // Wait before next attempt
+      const delay = baseDelay + (consecutiveFails * 3000);
+      await new Promise(r => setTimeout(r, delay));
+      clickNext();
     } else {
       // Scroll down to load more bookmarks
       window.scrollBy(0, 500);
@@ -99,8 +141,8 @@ function clearBookmarks() {
         if (hasNew) {
           clickNext();
         } else {
-          console.log(`Done! Removed ${count - skipped} bookmarks, skipped ${skipped} deleted posts.`);
-          alert(`Finished! Removed ${count - skipped} bookmarks.\n${skipped > 0 ? `Skipped ${skipped} deleted posts.` : ''}`);
+          console.log(`🎉 Done! Removed ${removed} bookmarks.`);
+          alert(`Finished! Removed ${removed} bookmarks.`);
         }
       }, 1000);
     }
