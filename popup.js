@@ -38,101 +38,57 @@ stopBtn.addEventListener('click', async () => {
 function clearBookmarks() {
   window.stopClearing = false;
   let removed = 0;
-  let attempts = 0;
-  let consecutiveFails = 0;
-  const baseDelay = 5000; // 5 seconds between requests
-  const rateLimitPause = 90000; // 90 second pause when rate limited
-  const successfullyRemoved = new WeakSet();
-
-  function countdown(seconds, message) {
-    return new Promise(resolve => {
-      let remaining = seconds;
-      const interval = setInterval(() => {
-        if (window.stopClearing) {
-          clearInterval(interval);
-          resolve();
-          return;
-        }
-        console.log(`${message} ${remaining}s...`);
-        remaining--;
-        if (remaining < 0) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 1000);
-    });
-  }
+  let skipped = 0;
+  const processed = new WeakSet();
 
   async function clickNext() {
     if (window.stopClearing) {
-      console.log(`Stopped. Removed ${removed} bookmarks.`);
+      console.log(`Stopped. Removed ${removed}, skipped ${skipped}.`);
       return;
     }
 
-    // Find the first unbookmark button we haven't successfully removed yet
     const allBtns = document.querySelectorAll('[data-testid="removeBookmark"]');
     let btn = null;
 
     for (const b of allBtns) {
-      if (!successfullyRemoved.has(b)) {
+      if (!processed.has(b)) {
         btn = b;
         break;
       }
     }
 
     if (btn) {
+      processed.add(btn);
       const article = btn.closest('article');
 
-      btn.click();
-      attempts++;
-      console.log(`Attempt #${attempts} (${removed} removed so far)`);
-
-      // Wait to check result
-      await new Promise(r => setTimeout(r, 2000));
-
-      // Check if the article was removed (success) or still there (rate limited)
-      if (article && document.contains(article)) {
-        const stillHasBtn = article.querySelector('[data-testid="removeBookmark"]');
-        if (stillHasBtn) {
-          // Failed - likely rate limited
-          consecutiveFails++;
-          console.log(`❌ Rate limited! (${consecutiveFails} consecutive fails)`);
-
-          if (consecutiveFails >= 3) {
-            // We're definitely rate limited, pause for a long time
-            console.log(`🛑 Rate limit detected. Pausing for 90 seconds...`);
-            await countdown(90, '⏳ Resuming in');
-            consecutiveFails = 0; // Reset after pause
-          }
-        } else {
-          // Button gone but article still there - success
-          successfullyRemoved.add(btn);
-          removed++;
-          consecutiveFails = 0;
-          console.log(`✅ Removed bookmark #${removed}`);
+      // Check if this tweet is deleted - skip it
+      if (article) {
+        const text = article.textContent || '';
+        if (text.includes('This post is unavailable') ||
+            text.includes('This Tweet was deleted') ||
+            text.includes('This post was deleted') ||
+            text.includes('This Tweet is unavailable')) {
+          skipped++;
+          console.log(`⏭️ Skipped deleted #${skipped}`);
+          setTimeout(clickNext, 100);
+          return;
         }
-      } else {
-        // Article removed from DOM - success
-        successfullyRemoved.add(btn);
-        removed++;
-        consecutiveFails = 0;
-        console.log(`✅ Removed bookmark #${removed}`);
       }
 
-      // Wait before next attempt
-      const delay = baseDelay + (consecutiveFails * 3000);
-      await new Promise(r => setTimeout(r, delay));
-      clickNext();
+      btn.click();
+      removed++;
+      console.log(`✅ Removed #${removed} (${skipped} skipped)`);
+
+      setTimeout(clickNext, 300);
     } else {
       // Scroll down to load more bookmarks
       window.scrollBy(0, 500);
 
-      // Wait a bit for new bookmarks to load
       setTimeout(() => {
         const newBtns = document.querySelectorAll('[data-testid="removeBookmark"]');
         let hasNew = false;
         for (const b of newBtns) {
-          if (!clickedButtons.has(b)) {
+          if (!processed.has(b)) {
             hasNew = true;
             break;
           }
@@ -141,10 +97,10 @@ function clearBookmarks() {
         if (hasNew) {
           clickNext();
         } else {
-          console.log(`🎉 Done! Removed ${removed} bookmarks.`);
-          alert(`Finished! Removed ${removed} bookmarks.`);
+          console.log(`🎉 Done! Removed ${removed}, skipped ${skipped} deleted.`);
+          alert(`Done! Removed ${removed} bookmarks, skipped ${skipped} deleted.`);
         }
-      }, 1000);
+      }, 500);
     }
   }
 

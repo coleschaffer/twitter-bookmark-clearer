@@ -22,18 +22,17 @@ The extension will automatically scroll down to load more bookmarks as it clears
 
 ## Features
 
-- **Rate limit aware**: 5-second delay between requests to avoid Twitter's API limits
-- **Auto-pause on rate limit**: Detects 429 errors and pauses for 90 seconds before retrying
-- **Retry logic**: Failed unbookmarks are retried, not skipped
-- **Live progress**: Console shows countdown timer and success/fail status
-- Scrolls to load more bookmarks as it clears
-- Handles deleted posts gracefully
+- **Fast**: 300ms between unbookmarks for quick clearing
+- **Skips deleted tweets**: Automatically detects and skips unavailable/deleted posts
+- **Auto-scroll**: Loads more bookmarks as it clears them
+- **Live progress**: Console shows removed/skipped counts
+- **Stoppable**: Click Stop anytime to halt
 
 ## How It Works
 
-The extension finds the unbookmark button (`data-testid="removeBookmark"`) on each tweet and clicks it sequentially. After clearing visible bookmarks, it scrolls to load more until all bookmarks are removed.
+The extension finds the unbookmark button (`data-testid="removeBookmark"`) on each tweet and clicks it sequentially. Deleted or unavailable tweets are automatically skipped. After clearing visible bookmarks, it scrolls to load more until all bookmarks are removed.
 
-If Twitter rate limits the requests (HTTP 429), the extension automatically pauses for 90 seconds and then resumes. You'll see a countdown in the console.
+If you hit a rate limit, just wait a bit and run it again.
 
 ## License
 
