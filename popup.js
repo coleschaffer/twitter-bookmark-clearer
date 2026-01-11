@@ -38,34 +38,69 @@ stopBtn.addEventListener('click', async () => {
 function clearBookmarks() {
   window.stopClearing = false;
   let count = 0;
+  let skipped = 0;
+  const clickedButtons = new WeakSet();
 
   async function clickNext() {
     if (window.stopClearing) {
-      console.log(`Stopped. Removed ${count} bookmarks.`);
+      console.log(`Stopped. Removed ${count} bookmarks, skipped ${skipped} deleted posts.`);
       return;
     }
 
-    const btn = document.querySelector('[data-testid="removeBookmark"]');
+    // Find all unbookmark buttons and get one we haven't clicked yet
+    const allBtns = document.querySelectorAll('[data-testid="removeBookmark"]');
+    let btn = null;
+
+    for (const b of allBtns) {
+      if (!clickedButtons.has(b)) {
+        btn = b;
+        break;
+      }
+    }
 
     if (btn) {
+      // Mark this button as clicked before we click it
+      clickedButtons.add(btn);
+
+      // Get the tweet article element to check if it gets removed
+      const article = btn.closest('article');
+
       btn.click();
       count++;
-      console.log(`Removed bookmark #${count}`);
+      console.log(`Clicked unbookmark #${count}`);
 
-      // Wait 500ms then click next
-      setTimeout(clickNext, 500);
+      // Wait and check if the article was removed
+      setTimeout(() => {
+        // If the article is still in the DOM and still has the button, it was probably a deleted post
+        if (article && document.contains(article)) {
+          const stillHasBtn = article.querySelector('[data-testid="removeBookmark"]');
+          if (stillHasBtn) {
+            skipped++;
+            console.log(`Post #${count} appears to be deleted, skipping...`);
+          }
+        }
+        clickNext();
+      }, 500);
     } else {
       // Scroll down to load more bookmarks
       window.scrollBy(0, 500);
 
       // Wait a bit for new bookmarks to load
       setTimeout(() => {
-        const newBtn = document.querySelector('[data-testid="removeBookmark"]');
-        if (newBtn) {
+        const newBtns = document.querySelectorAll('[data-testid="removeBookmark"]');
+        let hasNew = false;
+        for (const b of newBtns) {
+          if (!clickedButtons.has(b)) {
+            hasNew = true;
+            break;
+          }
+        }
+
+        if (hasNew) {
           clickNext();
         } else {
-          console.log(`Done! Removed ${count} bookmarks total.`);
-          alert(`Finished! Removed ${count} bookmarks.`);
+          console.log(`Done! Removed ${count - skipped} bookmarks, skipped ${skipped} deleted posts.`);
+          alert(`Finished! Removed ${count - skipped} bookmarks.\n${skipped > 0 ? `Skipped ${skipped} deleted posts.` : ''}`);
         }
       }, 1000);
     }

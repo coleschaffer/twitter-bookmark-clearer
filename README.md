@@ -20,9 +20,16 @@ A simple Chrome extension that automatically removes all your Twitter/X bookmark
 
 The extension will automatically scroll down to load more bookmarks as it clears them.
 
+## Features
+
+- Automatically removes bookmarks with a 0.5 second delay between each
+- Scrolls to load more bookmarks as it clears
+- Handles deleted posts gracefully (skips them instead of getting stuck)
+- Shows count of removed bookmarks and skipped deleted posts
+
 ## How It Works
 
-The extension finds the unbookmark button (`data-testid="removeBookmark"`) on each tweet and clicks it sequentially. After clearing visible bookmarks, it scrolls to load more until all bookmarks are removed.
+The extension finds the unbookmark button (`data-testid="removeBookmark"`) on each tweet and clicks it sequentially. After clearing visible bookmarks, it scrolls to load more until all bookmarks are removed. If a bookmarked tweet has been deleted by the original author, the extension detects this and skips to the next one.
 
 ## License
 
