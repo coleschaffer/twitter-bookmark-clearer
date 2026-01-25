@@ -39,6 +39,8 @@ function clearBookmarks() {
   window.stopClearing = false;
   let removed = 0;
   let skipped = 0;
+  let scrollRetries = 0;
+  const MAX_SCROLL_RETRIES = 5;
   const processed = new WeakSet();
 
   async function clickNext() {
@@ -59,6 +61,7 @@ function clearBookmarks() {
 
     if (btn) {
       processed.add(btn);
+      scrollRetries = 0; // Reset retries when we find a button
       const article = btn.closest('article');
 
       // Check if this tweet is deleted - skip it
@@ -82,9 +85,16 @@ function clearBookmarks() {
       setTimeout(clickNext, 300);
     } else {
       // Scroll down to load more bookmarks
-      window.scrollBy(0, 500);
+      window.scrollBy(0, 1000);
+      scrollRetries++;
+      console.log(`📜 Scrolling to load more... (attempt ${scrollRetries}/${MAX_SCROLL_RETRIES})`);
 
       setTimeout(() => {
+        if (window.stopClearing) {
+          console.log(`Stopped. Removed ${removed}, skipped ${skipped}.`);
+          return;
+        }
+
         const newBtns = document.querySelectorAll('[data-testid="removeBookmark"]');
         let hasNew = false;
         for (const b of newBtns) {
@@ -95,12 +105,16 @@ function clearBookmarks() {
         }
 
         if (hasNew) {
+          scrollRetries = 0;
+          clickNext();
+        } else if (scrollRetries < MAX_SCROLL_RETRIES) {
+          // Keep trying to scroll and find more
           clickNext();
         } else {
           console.log(`🎉 Done! Removed ${removed}, skipped ${skipped} deleted.`);
           alert(`Done! Removed ${removed} bookmarks, skipped ${skipped} deleted.`);
         }
-      }, 500);
+      }, 1000);
     }
   }
 
